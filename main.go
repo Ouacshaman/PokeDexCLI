@@ -4,14 +4,23 @@ import (
 	"fmt"
 	"bufio"
 	"os"
+	"log"
+	"io"
 	"strings"
 	"errors"
+	"net/http"
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(map[string]cliCommand) (bool, error)
+	callback    func(map[string]cliCommand, *config) (bool, error)
+}
+
+type config struct{
+	id int
+	name string
+	region {}
 }
 
 func main(){
@@ -45,7 +54,7 @@ func generate_cmd() map[string]cliCommand{
 		"help": {
 			name:        "help",
 			description: "Displays a help message",
-			callback:    func(cmds map[string]cliCommand) (bool, error){
+			callback:    func(cmds map[string]cliCommand, config *config) (bool, error){
 				fmt.Println("Welcome to the Pokedex:")
 				fmt.Println("Usage:")
 				for _,cmd := range cmds{
@@ -57,7 +66,22 @@ func generate_cmd() map[string]cliCommand{
 		"exit": {
 			name:        "exit",
 			description: "Exit the Pokedex",
-			callback:    func(cmds map[string]cliCommand) (bool, error){
+			callback:    func(cmds map[string]cliCommand, config *config) (bool, error){
+				return false, nil
+			},
+		},
+		"map": {
+			name: "map",
+			description: "list locations and explore",
+			callback: func(cmds map[string]cliCommand, config *config) (bool, error){
+				resp, err := http.Get(config.next)
+				if err != nil{
+					log.Fatal(err)
+				}
+				body, err := io.ReadAll(resp.Body)
+				defer res.Body.Close()
+				locations := config{}
+				err := json.Unmarshal(body, &locations)
 				return false, nil
 			},
 		},
