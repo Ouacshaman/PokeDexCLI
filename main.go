@@ -106,6 +106,7 @@ func generate_cmd() map[string]cliCommand{
 				}
 				config.Previous = config.url
 				config.url = config.Next
+				fmt.Println(config.Previous)
 				return true, nil
 			},
 		},
