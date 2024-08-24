@@ -101,12 +101,47 @@ func generate_cmd() map[string]cliCommand{
 					reply := fmt.Sprintf("Json Body retrieval error: %v", err)
 					fmt.Println(reply)
 				}
-				for _,location := range config.Results{
-					fmt.Println(location)
+				if len(config.Next) == 0{
+					fmt.Println("Reached the end, turn back")
+					return true, nil
 				}
-				config.Previous = config.url
+				for _,location := range config.Results{
+					fmt.Println(location.Name)
+				}
 				config.url = config.Next
 				fmt.Println(config.Previous)
+				return true, nil
+			},
+		},
+		"mapb": {
+			name: "mapb",
+			description: "list and go back to previous locations",
+			callback: func(cmds map[string]cliCommand, config *listedLocation) (bool, error){
+				if len(config.Previous) == 0{
+					fmt.Println("nothing in the past")
+					return true, nil
+				}
+				resp, err := http.Get(config.Previous)
+				if err != nil{
+					reply := fmt.Sprintf("unable to go back: %v", err)
+					fmt.Println(reply)
+				}
+				body, err := io.ReadAll(resp.Body)
+				if resp.StatusCode>299{
+					res := fmt.Sprintf("Failure code: %s", resp.StatusCode)
+					fmt.Println(res)
+				}
+				defer resp.Body.Close()
+				err = json.Unmarshal(body, &config)
+				if err != nil{
+					reply := fmt.Sprintf("Json Body retrieval error: %v", err)
+					fmt.Println(reply)
+				}
+				for _,location := range config.Results{
+					fmt.Println(location.Name)
+				}
+				config.url = config.Previous
+				fmt.Println(config.Next)
 				return true, nil
 			},
 		},
