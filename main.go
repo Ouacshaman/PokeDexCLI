@@ -92,8 +92,6 @@ func generate_cmd() map[string]cliCommand{
 					for _,location := range config.Results{
 						fmt.Println(location.Name)
 					}
-					config.url = config.Next
-					return true, nil
 				} else{
 					resp, err := http.Get(config.url)
 					if err != nil{
@@ -122,10 +120,10 @@ func generate_cmd() map[string]cliCommand{
 					for _,location := range config.Results{
 						fmt.Println(location.Name)
 					}
-					config.url = config.Next
 					fmt.Println(config.Previous)
-					return true, nil
 				}
+				config.url = config.Next
+				return true, nil
 			},
 		},
 		"mapb": {
