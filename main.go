@@ -155,24 +155,40 @@ func generate_cmd() map[string]cliCommand{
 			description: "explore and list pokemons",
 			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
 				locationUrl := "https://pokeapi.co/api/v2/location-area/"
-				body, error := httpGet(locationUrl+param[0])
-				if error{
-					return true, nil
+				data, found := cache.Get(locationUrl+param[0])
+				if found{
+					explore := Explore{}
+					err := json.Unmarshal(data, &explore)
+					if err != nil{
+						fmt.Println(err)
+						return true, nil
+					}
+					intro := fmt.Sprintf("Exploring %s...", param[0])
+					fmt.Println(intro)
+					for _,poke := range explore.Pokemon_encounters{
+						fmt.Println(poke.Pokemon.Name)
+					}
+				} else{
+					body, error := httpGet(locationUrl+param[0])
+					if error{
+						return true, nil
+					}
+					explore := Explore{}
+					cache.Add(locationUrl+param[0], body)
+					err := json.Unmarshal(body, &explore)
+					if err != nil{
+						fmt.Println(err)
+						return true, nil
+					}
+					//unmarshal data view
+					intro := fmt.Sprintf("Exploring %s...", param[0])
+					fmt.Println(intro)
+					for _,poke := range explore.Pokemon_encounters{
+						fmt.Println(poke.Pokemon.Name)
+					}
+					//raw view
+					//fmt.Println(string(body))
 				}
-				explore := Explore{}
-				err := json.Unmarshal(body, &explore)
-				if err != nil{
-					fmt.Println(err)
-					return true, nil
-				}
-				//unmarshal data view
-				intro := fmt.Sprintf("Exploring %s...", param[0])
-				fmt.Println(intro)
-				for _,poke := range explore.Pokemon_encounters{
-					fmt.Println(poke.Pokemon.Name)
-				}
-				//raw view
-				//fmt.Println(string(body))
 				return true, nil
 			},
 		},
