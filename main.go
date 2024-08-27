@@ -32,6 +32,18 @@ type Result struct{
 	Url string `json:"url"`
 }
 
+type Explore struct{
+	Pokemon_encounters []Pokemon_encounters `json:"pokemon_encounters"`
+}
+
+type Pokemon_encounters struct{
+	Pokemon Pokemon `json:"pokemon"`
+}
+
+type Pokemon struct{
+	Name string `json:"name"`
+}
+
 func main(){
 	active := true
 	commands := generate_cmd()
@@ -47,7 +59,9 @@ func main(){
 			break
 		}
 		argument := strings.ToLower(scanner.Text())
-		command, ok := commands[argument]
+		args := strings.Split(argument, " ")
+		command, ok := commands[args[0]]
+		params := args[1:]
 		if !ok{
 			err := errors.New("invalid command")
 			fmt.Println(err)
@@ -96,6 +110,7 @@ func generate_cmd() map[string]cliCommand{
 						return true, nil
 					}
 					cache.Add(config.url, body)
+					//fmt.Println(string(body))
 					unmarshal(body, config)
 					if len(config.Next) == 0{
 						fmt.Println("Reached the end, turn back")
@@ -132,6 +147,33 @@ func generate_cmd() map[string]cliCommand{
 					location_print(config.Results)
 				}
 				config.url = config.Previous
+				return true, nil
+			},
+		},
+		"explore": {
+			name: "explore",
+			description: "explore and list pokemons",
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache) (bool, error){
+				locationUrl := "https://pokeapi.co/api/v2/location-area/"
+				input := "pastoria-city-area"
+				body, error := httpGet(locationUrl+input)
+				if error{
+					return true, nil
+				}
+				explore := Explore{}
+				err := json.Unmarshal(body, &explore)
+				if err != nil{
+					fmt.Println(err)
+					return true, nil
+				}
+				//unmarshal data view
+				intro := fmt.Sprintf("Exploring %s...", input)
+				fmt.Println(intro)
+				for _,poke := range explore.Pokemon_encounters{
+					fmt.Println(poke.Pokemon.Name)
+				}
+				//raw view
+				//fmt.Println(string(body))
 				return true, nil
 			},
 		},
