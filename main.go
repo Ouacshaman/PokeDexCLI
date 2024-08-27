@@ -37,10 +37,10 @@ func main(){
 	commands := generate_cmd()
 	location := &listedLocation{}
 	location.url = "https://pokeapi.co/api/v2/location-area/"
-	linkCache := pokecache.NewCache(time.Second*60) 
+	linkCache := pokecache.NewCache(time.Second*60)
+	scanner := bufio.NewScanner(os.Stdin)
 	for active{
 		fmt.Printf("pokedex > ")
-		scanner := bufio.NewScanner(os.Stdin)
 		scanner.Scan()
 		err := scanner.Err()
 		if err != nil{
@@ -89,38 +89,19 @@ func generate_cmd() map[string]cliCommand{
 				data, found := cache.Get(config.url)
 				if found{
 					unmarshal(data, config)
-					for _,location := range config.Results{
-						fmt.Println(location.Name)
-					}
+					location_print(config.Results)
 				} else{
-					resp, err := http.Get(config.url)
-					if err != nil{
-						reply := fmt.Sprintf("unable to retrieve api: %v", err)
-						fmt.Println(reply)
-					}
-					body, err := io.ReadAll(resp.Body)
-					if err != nil{
-						reply := fmt.Sprintf("Can't read response body: %v", err)
-						fmt.Println(reply)
+					body, error := httpGet(config.url)
+					if error{
 						return true, nil
 					}
-					if resp.StatusCode > 299{
-						res := fmt.Sprintf("Failure code: %s", resp.StatusCode)
-						fmt.Println(res)
-						return true, nil
-					}
-					defer resp.Body.Close()
 					cache.Add(config.url, body)
 					unmarshal(body, config)
 					if len(config.Next) == 0{
 						fmt.Println("Reached the end, turn back")
 						return true, nil
 					}
-					
-					for _,location := range config.Results{
-						fmt.Println(location.Name)
-					}
-					fmt.Println(config.Previous)
+					location_print(config.Results)
 				}
 				config.url = config.Next
 				return true, nil
@@ -130,44 +111,69 @@ func generate_cmd() map[string]cliCommand{
 			name: "mapb",
 			description: "list and go back to previous locations",
 			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache) (bool, error){
-				if len(config.Previous) == 0{
-					fmt.Println("nothing in the past")
-					return true, nil
-				}
-				resp, err := http.Get(config.Previous)
-				if err != nil{
-					reply := fmt.Sprintf("unable to go back: %v", err)
-					fmt.Println(reply)
-				}
-				body, err := io.ReadAll(resp.Body)
-				if err != nil{
-					reply := fmt.Sprintf("Can't read response body: %v", err)
-					fmt.Println(reply)
-					return true, nil
-				}
-				if resp.StatusCode>299{
-					res := fmt.Sprintf("Failure code: %s", resp.StatusCode)
-					fmt.Println(res)
-					return true, nil
-				}
-				defer resp.Body.Close()
-				unmarshal(body, config)
-				for _,location := range config.Results{
-					fmt.Println(location.Name)
+				data, found := cache.Get(config.Previous)
+				if found{
+					unmarshal(data, config)
+					location_print(config.Results)
+				} else{
+					if len(config.Previous) == 0 || config.Previous == ""{
+						fmt.Println("nothing in the past")
+						return true, nil
+					}
+					body, error := httpGet(config.Previous)
+					if error{
+						return true, nil
+					}
+					cache.Add(config.Previous, body)
+					result := unmarshal(body, config)
+					if !result{
+						return true, nil
+					}
+					location_print(config.Results)
 				}
 				config.url = config.Previous
-				fmt.Println(config.Next)
 				return true, nil
 			},
 		},
 	}
 }
 
-func unmarshal(body []byte, config *listedLocation){
+func httpGet(url string) ([]byte, bool){
+	resp, err := http.Get(url)
+	errors := false
+	if err != nil{
+		reply := fmt.Sprintf("unable to go back: %v", err)
+		fmt.Println(reply)
+		errors = true
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil{
+		reply := fmt.Sprintf("Can't read response body: %v", err)
+		fmt.Println(reply)
+		errors = true
+	}
+	if resp.StatusCode>299{
+		res := fmt.Sprintf("Failure code: %s", resp.StatusCode)
+		fmt.Println(res)
+		errors = true
+	}
+	defer resp.Body.Close()
+	return body, errors
+}
+
+func unmarshal(body []byte, config *listedLocation) bool{
 	err := json.Unmarshal(body, config)
 	if err != nil{
 		reply := fmt.Sprintf("Json Body retrieval error: %v", err)
 		fmt.Println(reply)
+		return false
+	}
+	return true
+}
+
+func location_print(results []Result){
+	for _,location := range results{
+		fmt.Println(location.Name)
 	}
 }
 
