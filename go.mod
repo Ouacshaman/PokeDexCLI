@@ -1,3 +1,3 @@
-module github.com/Ouacshaman/PokeDexCLI
+module PokeDexCLI
 
 go 1.22.2
