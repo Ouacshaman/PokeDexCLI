@@ -86,36 +86,46 @@ func generate_cmd() map[string]cliCommand{
 			name: "map",
 			description: "list locations and explore",
 			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache) (bool, error){
-				resp, err := http.Get(config.url)
-				if err != nil{
-					reply := fmt.Sprintf("unable to retrieve api: %v", err)
-					fmt.Println(reply)
-				}
-				body, err := io.ReadAll(resp.Body)
-				if err != nil{
-					reply := fmt.Sprintf("Can't read response body: %v", err)
-					fmt.Println(reply)
+				data, found := cache.Get(config.url)
+				if found{
+					unmarshal(data, config)
+					for _,location := range config.Results{
+						fmt.Println(location.Name)
+					}
+					config.url = config.Next
 					return true, nil
-				}
-				if resp.StatusCode > 299{
-					res := fmt.Sprintf("Failure code: %s", resp.StatusCode)
-					fmt.Println(res)
-					return true, nil
-				}
-				defer resp.Body.Close()
-				unmarshal(body, config)
-				if len(config.Next) == 0{
-					fmt.Println("Reached the end, turn back")
-					return true, nil
-				}
+				} else{
+					resp, err := http.Get(config.url)
+					if err != nil{
+						reply := fmt.Sprintf("unable to retrieve api: %v", err)
+						fmt.Println(reply)
+					}
+					body, err := io.ReadAll(resp.Body)
+					if err != nil{
+						reply := fmt.Sprintf("Can't read response body: %v", err)
+						fmt.Println(reply)
+						return true, nil
+					}
+					if resp.StatusCode > 299{
+						res := fmt.Sprintf("Failure code: %s", resp.StatusCode)
+						fmt.Println(res)
+						return true, nil
+					}
+					defer resp.Body.Close()
+					cache.Add(config.url, body)
+					unmarshal(body, config)
+					if len(config.Next) == 0{
+						fmt.Println("Reached the end, turn back")
+						return true, nil
+					}
 					
-				for _,location := range config.Results{
-					fmt.Println(location.Name)
+					for _,location := range config.Results{
+						fmt.Println(location.Name)
+					}
+					config.url = config.Next
+					fmt.Println(config.Previous)
+					return true, nil
 				}
-				config.url = config.Next
-				fmt.Println(config.Previous)
-				cache.Add(config.url, body)
-				return true, nil
 			},
 		},
 		"mapb": {
