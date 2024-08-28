@@ -46,7 +46,7 @@ type PokemonEC struct{
 }
 
 type Pokemon struct{
-	Nam string `json:"name"`
+	Name string `json:"name"`
 	Height int `json:"height"`
 	Weight int `json:"weight"`
 	Stats []Stats `json:"stats"`
@@ -239,12 +239,50 @@ func generate_cmd() map[string]cliCommand{
 				rand_den := int(baseXp/10)
 				rng := rand_num/rand_den
 				if rng == 1.0{
-					fmt.Println(caught)
-					(*dex)[param[0]] = pokemon
+					data, ok := (*dex)[param[0]]
+					if !ok{
+						(*dex)[param[0]] = pokemon
+						fmt.Println(caught)
+					} else{
+						fmt.Println(data.Name,"is already caught")
+					}
 				} else{
 					fmt.Println(escaped)
 				}
 				return true,nil
+			},
+		},
+		"inspect": {
+			name: "inspect",
+			description : "Provide stats of Pokemons",
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
+				data, ok:= (*dex)[param[0]]
+				if !ok{
+					fmt.Println("you have not caught that pokemon")
+					return true, nil
+				}
+				fmt.Println("Name",data.Name)
+				fmt.Println("Height: ",data.Height)
+				fmt.Println("Weight: ",data.Weight)
+				fmt.Println("Stats:")
+				for _,item := range data.Stats{
+					output := fmt.Sprintf("  -%s: %d",item.Stat.Name, item.Base_stat)
+					fmt.Println(output)
+				}
+				fmt.Println("Types:")
+				fmt.Println("  -",data.Types[0].Type.Name)
+				return true, nil
+			},
+		},
+		"pokedex": {
+			name: "pokedex",
+			description: "list name of all Pokemons caught",
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
+				fmt.Println("Your Pokedex:")
+				for i,_ := range (*dex){
+					fmt.Println("  -",i)
+				}
+				return true, nil
 			},
 		},
 	}
