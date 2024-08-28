@@ -192,6 +192,27 @@ func generate_cmd() map[string]cliCommand{
 				return true, nil
 			},
 		},
+		"catch": {
+			name: "catch",
+			description: "action created to catch pokemons",
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
+				baseUrl := "https://pokeapi.co/api/v2/pokemon/"
+				completeUrl := baseUrl + param[0]
+				body, error := httpGet(completeUrl)
+				if error{
+					return true, nil
+				}
+				base := struct{
+					Base_experience int `json:"base_experience"`
+				}{}
+				err := json.Unmarshal(body,&base)
+				if err != nil{
+					return true, nil
+				}
+				fmt.Println(base.Base_experience)
+				return true,nil
+			},
+		},
 	}
 }
 
