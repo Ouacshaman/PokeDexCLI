@@ -11,12 +11,13 @@ import (
 	"net/http"
 	"PokeDexCLI/pokecache"
 	"time"
+	"math/rand"
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(map[string]cliCommand, *listedLocation, *pokecache.Cache, []string) (bool, error)
+	callback    func(map[string]cliCommand, *listedLocation, *pokecache.Cache, []string, *map[string]Pokemon) (bool, error)
 }
 
 type listedLocation struct {
@@ -37,11 +38,31 @@ type Explore struct{
 }
 
 type Pokemon_encounters struct{
-	Pokemon Pokemon `json:"pokemon"`
+	Pokemon PokemonEC `json:"pokemon"`
+}
+
+type PokemonEC struct{
+	Name string `json:"name"`
 }
 
 type Pokemon struct{
-	Name string `json:"name"`
+	Nam string `json:"name"`
+	Height int `json:"height"`
+	Weight int `json:"weight"`
+	Stats []Stats `json:"stats"`
+	Base_experience int `json:"base_experience"`
+	Types []struct{
+		Type struct{
+			Name string `json:"name"`
+		} `json:"type"`
+	}`json:"types"`
+}
+
+type Stats struct{
+	Base_stat int `json:"base_stat"`
+	Stat struct {
+		Name string `json:"name"`
+	} `json:"stat"`
 }
 
 func main(){
@@ -51,6 +72,7 @@ func main(){
 	location.url = "https://pokeapi.co/api/v2/location-area/"
 	linkCache := pokecache.NewCache(time.Second*60)
 	scanner := bufio.NewScanner(os.Stdin)
+	pokedex := make(map[string]Pokemon)
 	for active{
 		fmt.Printf("pokedex > ")
 		scanner.Scan()
@@ -67,7 +89,7 @@ func main(){
 			fmt.Println(err)
 			continue
 		}
-		res, err := command.callback(commands, location, linkCache, params)
+		res, err := command.callback(commands, location, linkCache, params, &pokedex)
 		if err != nil{
 			fmt.Println(err)
 		}
@@ -80,7 +102,7 @@ func generate_cmd() map[string]cliCommand{
 		"help": {
 			name:        "help",
 			description: "Displays a help message",
-			callback:    func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
+			callback:    func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
 				fmt.Println("Welcome to the Pokedex:")
 				fmt.Println("Usage:")
 				for _,cmd := range cmds{
@@ -92,14 +114,14 @@ func generate_cmd() map[string]cliCommand{
 		"exit": {
 			name:        "exit",
 			description: "Exit the Pokedex",
-			callback:    func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
+			callback:    func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
 				return false, nil
 			},
 		},
 		"map": {
 			name: "map",
 			description: "list locations and explore",
-			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
 				data, found := cache.Get(config.url)
 				if found{
 					unmarshal(data, config)
@@ -125,7 +147,7 @@ func generate_cmd() map[string]cliCommand{
 		"mapb": {
 			name: "mapb",
 			description: "list and go back to previous locations",
-			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
 				data, found := cache.Get(config.Previous)
 				if found{
 					unmarshal(data, config)
@@ -153,7 +175,7 @@ func generate_cmd() map[string]cliCommand{
 		"explore": {
 			name: "explore",
 			description: "explore and list pokemons",
-			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
 				locationUrl := "https://pokeapi.co/api/v2/location-area/"
 				data, found := cache.Get(locationUrl+param[0])
 				if found{
@@ -195,21 +217,33 @@ func generate_cmd() map[string]cliCommand{
 		"catch": {
 			name: "catch",
 			description: "action created to catch pokemons",
-			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string) (bool, error){
+			callback: func(cmds map[string]cliCommand, config *listedLocation, cache *pokecache.Cache, param []string, dex *map[string]Pokemon) (bool, error){
 				baseUrl := "https://pokeapi.co/api/v2/pokemon/"
 				completeUrl := baseUrl + param[0]
 				body, error := httpGet(completeUrl)
 				if error{
 					return true, nil
 				}
-				base := struct{
-					Base_experience int `json:"base_experience"`
-				}{}
-				err := json.Unmarshal(body,&base)
+				pokemon := Pokemon{}
+				err := json.Unmarshal(body, &pokemon)
 				if err != nil{
 					return true, nil
 				}
-				fmt.Println(base.Base_experience)
+				intro := fmt.Sprintf("Throwing a Pokeball at %s...", param[0])
+				fmt.Println(intro)
+				escaped := fmt.Sprintf("%s escaped!", param[0])
+				caught := fmt.Sprintf("%s was caught!", param[0])
+				baseXp := pokemon.Base_experience
+				rand.Seed(time.Now().UnixNano())
+				rand_num := int(rand.Intn(baseXp)/10)
+				rand_den := int(baseXp/10)
+				rng := rand_num/rand_den
+				if rng == 1.0{
+					fmt.Println(caught)
+					(*dex)[param[0]] = pokemon
+				} else{
+					fmt.Println(escaped)
+				}
 				return true,nil
 			},
 		},
